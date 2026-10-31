@@ -30,7 +30,8 @@ previous mappings. Run them in a local desktop session on a MacBook.
 
 - Describe the behavior before and after the change.
 - Include relevant test results and a screenshot for visible changes.
-- Verify both enabled and disabled states, custom shortcuts, and normal quit.
+- Keep all controls in the menu bar dropdown; avoid separate settings or color-picker windows.
+- Verify colored and gray icons, saved custom colors, shortcut recording/cancellation, and normal quit.
 - Preserve unrelated keyboard mappings and restore keys on normal quit.
 - Do not commit build outputs, local preferences, credentials, or desktop captures.
 
