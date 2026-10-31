@@ -6,6 +6,15 @@ private final class ToastPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
+private enum ToastLayout {
+    static let capsuleSize = NSSize(width: 248, height: 58)
+    static let shadowPadding: CGFloat = 20
+    static var panelSize: NSSize {
+        NSSize(width: capsuleSize.width + shadowPadding * 2,
+               height: capsuleSize.height + shadowPadding * 2)
+    }
+}
+
 private struct ToastView: View {
     let enabled: Bool
     @Environment(\.colorScheme) private var colorScheme
@@ -13,28 +22,28 @@ private struct ToastView: View {
     var body: some View {
         capsule
             .shadow(color: .black.opacity(colorScheme == .dark ? 0.28 : 0.13), radius: 13, y: 5)
-            .padding(20)
+            .padding(ToastLayout.shadowPadding)
             .accessibilityElement(children: .combine)
     }
 
     private var content: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             Image(systemName: enabled ? "sun.max.fill" : "sun.max")
-                .font(.system(size: 21, weight: .semibold))
+                .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(enabled ? Color.white : Color.secondary)
-                .frame(width: 42, height: 42)
+                .frame(width: 36, height: 36)
                 .background(enabled ? Color(red: 0.80, green: 0.43, blue: 0.08) : Color.primary.opacity(0.07), in: Circle())
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(enabled ? "已启用Work Mode" : "已关闭Work Mode")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.primary)
                 Text(enabled ? "电脑与屏幕保持唤醒" : "已恢复自动休眠")
-                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                    .font(.system(size: 10.5)).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
         }
-        .padding(.leading, 12).padding(.trailing, 23)
-        .frame(width: 276, height: 66)
+        .padding(.leading, 10).padding(.trailing, 20)
+        .frame(width: ToastLayout.capsuleSize.width, height: ToastLayout.capsuleSize.height)
     }
 
     @ViewBuilder private var capsule: some View {
@@ -60,7 +69,7 @@ final class ToastController {
 
         let mouse = NSEvent.mouseLocation
         guard let screen = NSScreen.screens.first(where: { $0.frame.contains(mouse) }) ?? NSScreen.main else { return }
-        let size = NSSize(width: 316, height: 106)
+        let size = ToastLayout.panelSize
         // visibleFrame keeps the capsule below the menu bar and camera notch.
         let rect = NSRect(x: screen.visibleFrame.midX - size.width / 2,
                           y: screen.visibleFrame.maxY - size.height - 8,

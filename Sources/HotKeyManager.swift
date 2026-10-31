@@ -38,8 +38,17 @@ final class HotKeyManager {
         // The same latch prevents a raw event and a Carbon event double-toggling.
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
             guard let self, self.reference != nil,
-                  self.registeredShortcut == Shortcut(event: event) else { return event }
-            if !event.isARepeat { self.handlePress(event.type == .keyDown) }
+                  let shortcut = self.registeredShortcut,
+                  shortcut.keyCode == UInt32(event.keyCode) else { return event }
+            // Key-up reflects the modifiers still held, not those at key-down.
+            // Releasing Command/Option/Control first must still clear the latch.
+            if event.type == .keyUp {
+                guard self.isPressed else { return event }
+                self.handlePress(false)
+                return nil
+            }
+            guard shortcut == Shortcut(event: event) else { return event }
+            if !event.isARepeat { self.handlePress(true) }
             return nil
         }
     }
