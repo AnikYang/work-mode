@@ -27,6 +27,38 @@ defaults.set(Data("invalid-json".utf8), forKey: Shortcut.storageKey)
 check(Shortcut.load(from: defaults) == .defaultShortcut, "Corrupt preference falls back safely")
 
 let app = NSApplication.shared
+check(AccentColor.load(from: defaults) == .defaultColor, "Missing color preference uses amber")
+let customColor = AccentColor(hex: "  #12aBeF\n")!
+check(customColor.hex == "#12ABEF", "Custom color accepts and normalizes a six-digit hex value")
+for value in ["", "#FFF", "#12345678", "GG1234", "##123456", "１２３４５６"] {
+    check(AccentColor(hex: value) == nil, "Reject invalid color: \(value)")
+}
+customColor.save(to: defaults)
+check(AccentColor.load(from: defaults) == customColor, "Custom color survives preference round trip")
+defaults.set("invalid", forKey: AccentColor.storageKey)
+check(AccentColor.load(from: defaults) == .defaultColor, "Corrupt color preference falls back safely")
+
+func opaquePixelColors(_ image: NSImage) -> [NSColor] {
+    let bitmap = NSBitmapImageRep(data: image.tiffRepresentation!)!
+    return (0..<bitmap.pixelsHigh).flatMap { y in
+        (0..<bitmap.pixelsWide).compactMap { x -> NSColor? in
+            guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB), color.alphaComponent > 0.9 else { return nil }
+            return color
+        }
+    }
+}
+let redIcon = StatusIcon.make(enabled: true, color: AccentColor(hex: "FF0000")!)
+let redPixels = opaquePixelColors(redIcon)
+check(!redIcon.isTemplate && !redPixels.isEmpty && redPixels.allSatisfy {
+    // AppKit's TIFF snapshot may convert through the calibrated RGB space.
+    $0.redComponent > 0.9 && $0.greenComponent < 0.2 && $0.blueComponent < 0.2
+}, "Enabled status icon actually renders in the selected color")
+let grayPixels = opaquePixelColors(StatusIcon.make(enabled: false, color: customColor))
+check(!grayPixels.isEmpty && grayPixels.allSatisfy {
+    abs($0.redComponent - $0.greenComponent) < 0.01 && abs($0.greenComponent - $0.blueComponent) < 0.01
+        && $0.redComponent > 0.4 && $0.redComponent < 0.7
+}, "Disabled status icon stays gray regardless of the selected color")
+
 let hotKey = HotKeyManager()
 let testKey = Shortcut(keyCode: UInt32(kVK_F19), modifiers: UInt32(controlKey | optionKey | cmdKey))
 try hotKey.register(testKey)
@@ -66,9 +98,10 @@ check(activationCount == 1, "Holding a key only toggles once")
 deliverHotKeyEvent(UInt32(kEventHotKeyReleased))
 deliverHotKeyEvent(UInt32(kEventHotKeyPressed))
 check(activationCount == 2, "Releasing and pressing again toggles again")
-func deliverAppKeyEvent(_ type: NSEvent.EventType, repeating: Bool = false) {
+func deliverAppKeyEvent(_ type: NSEvent.EventType, repeating: Bool = false,
+                        modifiers: NSEvent.ModifierFlags = [.control, .option, .command]) {
     let event = NSEvent.keyEvent(with: type, location: .zero,
-                                modifierFlags: [.control, .option, .command],
+                                modifierFlags: modifiers,
                                 timestamp: ProcessInfo.processInfo.systemUptime,
                                 windowNumber: 0, context: nil,
                                 characters: "", charactersIgnoringModifiers: "",
@@ -81,6 +114,12 @@ check(activationCount == 3, "App-directed key events also toggle")
 deliverAppKeyEvent(.keyDown, repeating: true)
 deliverHotKeyEvent(UInt32(kEventHotKeyPressed))
 check(activationCount == 3, "Local repeat and Carbon duplicate do not double-toggle")
+deliverAppKeyEvent(.keyUp)
+deliverAppKeyEvent(.keyDown)
+check(activationCount == 4, "Start a shortcut before releasing modifiers first")
+deliverAppKeyEvent(.keyUp, modifiers: [])
+deliverAppKeyEvent(.keyDown)
+check(activationCount == 5, "Releasing modifiers before the key does not leave the shortcut stuck")
 deliverAppKeyEvent(.keyUp)
 hotKey.unregister()
 
