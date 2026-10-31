@@ -15,14 +15,14 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Build Apple Silicon app
-        run: bash scripts/build.sh
       - name: Run core checks
         run: bash scripts/test.sh
-      - name: Package app
+      - name: Build and package Apple Silicon app
         run: bash scripts/package.sh
       - uses: actions/upload-artifact@v4
         with:
           name: Work-Mode-Apple-Silicon
-          path: build/Work-Mode-*.zip
+          path: |
+            build/Work-Mode-arm64.zip
+            build/SHA256SUMS.txt
           retention-days: 14

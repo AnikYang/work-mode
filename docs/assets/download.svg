@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="280" height="56" viewBox="0 0 280 56" role="img" aria-label="Download Work Mode for macOS">
+  <rect width="280" height="56" rx="12" fill="#237a41"/>
+  <path d="M29 15v18m-7-7 7 7 7-7M19 36v6h20v-6" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="56" y="26" fill="#fff" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="16" font-weight="600">Download for macOS</text>
+  <text x="56" y="43" fill="#d2efdc" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" font-size="11">Apple Silicon · Free &amp; open source</text>
+</svg>

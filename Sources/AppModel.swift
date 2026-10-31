@@ -4,6 +4,7 @@ import Combine
 final class AppModel: ObservableObject {
     @Published private(set) var isEnabled = false
     @Published private(set) var shortcut = Shortcut.load()
+    @Published private(set) var accentColor = AccentColor.load()
     @Published private(set) var isRecording = false
     @Published private(set) var shortcutAvailable = false
     @Published private(set) var focusKeyCaptured = false
@@ -62,6 +63,12 @@ final class AppModel: ObservableObject {
     }
 
     func resetShortcut() { setShortcut(.defaultShortcut) }
+
+    func setAccentColor(_ color: AccentColor) {
+        accentColor = color
+        color.save()
+        onStatusChange?()
+    }
 
     private func setShortcut(_ candidate: Shortcut) {
         isRecording = false
