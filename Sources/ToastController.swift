@@ -6,6 +6,39 @@ private final class ToastPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
+private final class ToastSettingsButton: NSButton {
+    private let openSettings: () -> Void
+
+    init(frame: NSRect, enabled: Bool, openSettings: @escaping () -> Void) {
+        self.openSettings = openSettings
+        super.init(frame: frame)
+        title = ""
+        isBordered = false
+        focusRingType = .none
+        target = self
+        action = #selector(press)
+        toolTip = "打开 Work Mode 设置"
+        updateLabel(enabled: enabled)
+    }
+
+    func updateLabel(enabled: Bool) {
+        setAccessibilityLabel(enabled ? "已启用 Work Mode，打开设置" : "已关闭 Work Mode，打开设置")
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let radius = bounds.height / 2
+        let capsule = NSBezierPath(roundedRect: bounds, xRadius: radius, yRadius: radius)
+        guard capsule.contains(convert(point, from: superview)) else { return nil }
+        return super.hitTest(point)
+    }
+
+    @objc private func press() { openSettings() }
+}
+
 private enum ToastLayout {
     static let capsuleSize = NSSize(width: 248, height: 58)
     static let shadowPadding: CGFloat = 20
@@ -23,7 +56,7 @@ private struct ToastView: View {
         capsule
             .shadow(color: .black.opacity(colorScheme == .dark ? 0.28 : 0.13), radius: 13, y: 5)
             .padding(ToastLayout.shadowPadding)
-            .accessibilityElement(children: .combine)
+            .accessibilityHidden(true)
     }
 
     private var content: some View {
@@ -41,6 +74,10 @@ private struct ToastView: View {
                     .font(.system(size: 10.5)).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
+            Image(systemName: "gearshape")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
         }
         .padding(.leading, 10).padding(.trailing, 20)
         .frame(width: ToastLayout.capsuleSize.width, height: ToastLayout.capsuleSize.height)
@@ -59,13 +96,25 @@ private struct ToastView: View {
 final class ToastController {
     private var panel: ToastPanel?
     private var dismissal: DispatchWorkItem?
-    private var generation = 0
 
-    func show(enabled: Bool) {
-        dismissal?.cancel()
-        generation += 1
-        let currentGeneration = generation
+    func updatePinnedToast(enabled: Bool) {
+        guard dismissal == nil, let views = panel?.contentView?.subviews else { return }
+        for view in views {
+            (view as? NSHostingView<ToastView>)?.rootView = ToastView(enabled: enabled)
+            (view as? ToastSettingsButton)?.updateLabel(enabled: enabled)
+        }
+    }
+
+    func dismissPinnedToast() {
+        guard dismissal == nil else { return }
         panel?.orderOut(nil)
+        panel = nil
+    }
+
+    func show(enabled: Bool, openSettings: @escaping (NSPanel) -> Void) {
+        dismissal?.cancel()
+        panel?.orderOut(nil)
+        panel = nil
 
         let mouse = NSEvent.mouseLocation
         guard let screen = NSScreen.screens.first(where: { $0.frame.contains(mouse) }) ?? NSScreen.main else { return }
@@ -79,12 +128,26 @@ final class ToastController {
         panel.title = "Work Mode 提示"
         panel.backgroundColor = .clear
         panel.hasShadow = false
-        panel.ignoresMouseEvents = true
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.level = .statusBar
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle, .stationary]
-        panel.contentView = NSHostingView(rootView: ToastView(enabled: enabled))
+        let content = NSView(frame: NSRect(origin: .zero, size: size))
+        let hostingView = NSHostingView(rootView: ToastView(enabled: enabled))
+        hostingView.frame = content.bounds
+        content.addSubview(hostingView)
+        // Let the AppKit control receive the first click while another app is active.
+        let buttonFrame = content.bounds.insetBy(dx: ToastLayout.shadowPadding, dy: ToastLayout.shadowPadding)
+        let button = ToastSettingsButton(frame: buttonFrame, enabled: enabled) { [weak self, weak panel] in
+            guard let self, let panel, self.panel === panel, let dismissal = self.dismissal else { return }
+            dismissal.cancel()
+            self.dismissal = nil
+            panel.alphaValue = 1
+            // Open after AppKit finishes dispatching the click on the transient panel.
+            DispatchQueue.main.async { openSettings(panel) }
+        }
+        content.addSubview(button)
+        panel.contentView = content
         panel.alphaValue = 0
         panel.setFrameOrigin(NSPoint(x: rect.minX, y: rect.minY + 8))
         panel.orderFrontRegardless()
@@ -102,14 +165,15 @@ final class ToastController {
                                         .priority: NSAccessibilityPriorityLevel.high.rawValue])
 
         let dismissal = DispatchWorkItem { [weak self, weak panel] in
-            guard let self, let panel, self.generation == currentGeneration else { return }
+            guard let self, let panel, self.panel === panel else { return }
             NSAnimationContext.runAnimationGroup({ context in
                 context.duration = reduceMotion ? 0 : 0.22
                 panel.animator().alphaValue = 0
             }, completionHandler: { [weak self, weak panel] in
-                guard self?.generation == currentGeneration else { return }
-                panel?.orderOut(nil)
-                self?.panel = nil
+                guard let self, let panel, self.panel === panel, self.dismissal != nil else { return }
+                panel.orderOut(nil)
+                self.panel = nil
+                self.dismissal = nil
             })
         }
         self.dismissal = dismissal

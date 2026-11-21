@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import SwiftUI
 
 // Keep the old notification name so an already running older copy can still respond.
@@ -20,7 +21,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         statusItem.button?.action = #selector(toggleMenu)
         statusItem.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
 
-        popover.behavior = .transient
         popover.animates = false
         popover.delegate = self
         let controller = NSHostingController(rootView: MenuView(model: model))
@@ -31,7 +31,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         model.onFeedback = { [weak self] enabled in
             guard let self else { return }
             // The open dropdown already shows the result; avoid a second prompt.
-            if !self.popover.isShown { self.toast.show(enabled: enabled) }
+            if self.popover.isShown {
+                self.toast.updatePinnedToast(enabled: enabled)
+            } else {
+                self.toast.show(enabled: enabled) { [weak self] panel in
+                    guard let self else { panel.orderOut(nil); return }
+                    self.openSettingsFromToast(panel)
+                }
+            }
         }
         updateStatus()
 
@@ -49,7 +56,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                                                             name: showMenuNotification, object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(didWake),
                                                           name: NSWorkspace.didWakeNotification, object: nil)
-        showMenu()
+        let event = NSAppleEventManager.shared().currentAppleEvent
+        let launchedAtLogin = event?.eventID == kAEOpenApplication
+            && event?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
+        if !launchedAtLogin { showMenu() }
     }
 
     private func configureEditingMenu() {
@@ -81,11 +91,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     @objc private func showMenu() {
         guard let button = statusItem.button, !popover.isShown else { return }
         NSApp.activate(ignoringOtherApps: true)
-        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        popover.behavior = .transient
+        showPopover(anchoredTo: button)
+    }
+
+    private func openSettingsFromToast(_ panel: NSPanel) {
+        showMenu()
+        // If the status item is hidden, anchor to the still-visible toast.
+        if !popover.isShown, let anchor = panel.contentView {
+            popover.behavior = .semitransient
+            showPopover(anchoredTo: anchor)
+        }
+        if !popover.isShown { toast.dismissPinnedToast() }
+    }
+
+    private func showPopover(anchoredTo view: NSView) {
+        model.refreshLoginStatus()
+        popover.show(relativeTo: view.bounds, of: view, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
     }
 
-    func popoverDidClose(_ notification: Notification) { model.cancelRecording() }
+    func popoverDidClose(_ notification: Notification) {
+        toast.dismissPinnedToast()
+        model.cancelRecording()
+    }
 
     @objc private func didWake() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.model.refreshKeyboard() }

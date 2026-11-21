@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import ServiceManagement
 
 final class AppModel: ObservableObject {
     @Published private(set) var isEnabled = false
@@ -8,6 +9,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var isRecording = false
     @Published private(set) var shortcutAvailable = false
     @Published private(set) var focusKeyCaptured = false
+    @Published private(set) var loginStatus = SMAppService.mainApp.status
+    @Published private(set) var loginError: String?
     @Published var errorMessage: String?
     var onStatusChange: (() -> Void)?
     var onFeedback: ((Bool) -> Void)?
@@ -63,6 +66,28 @@ final class AppModel: ObservableObject {
     }
 
     func resetShortcut() { setShortcut(.defaultShortcut) }
+
+    var launchesAtLogin: Bool {
+        loginStatus == .enabled || loginStatus == .requiresApproval
+    }
+
+    func refreshLoginStatus() {
+        loginStatus = SMAppService.mainApp.status
+    }
+
+    func setLaunchAtLogin(_ enabled: Bool) {
+        let service = SMAppService.mainApp
+        loginError = nil
+        refreshLoginStatus()
+        guard enabled != launchesAtLogin else { return }
+        defer { refreshLoginStatus() }
+        do {
+            if enabled { try service.register() }
+            else { try service.unregister() }
+        } catch {
+            loginError = error.localizedDescription
+        }
+    }
 
     func setAccentColor(_ color: AccentColor) {
         accentColor = color

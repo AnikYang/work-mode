@@ -22,6 +22,7 @@ It repurposes the MacBook's **F6 Do Not Disturb key** as a keep-awake switch. Pr
 - Prevent idle system sleep and idle display sleep during long AI tasks.
 - Take over the built-in Focus key while the default F6 shortcut is selected; restore it when changing shortcuts or quitting normally.
 - Record a global shortcut: F1–F20, or a combination with Command, Option, or Control.
+- Enable “登录时启动” (Launch at Login) to start Work Mode in the menu bar when you sign in to macOS. Keep-awake mode starts off.
 - Show a native sun capsule at the top of the display, with Liquid Glass on macOS 26+ and system material on older versions.
 - No third-party runtime dependencies, polling, simulated mouse movement, or persistent child processes.
 - No account, network connection, telemetry, Accessibility permission, or Input Monitoring permission required.
@@ -40,6 +41,8 @@ You enable Work Mode manually; it does not detect AI activity. It replaces the *
 4. Click the shortcut control in the dropdown to record a shortcut. Escape or dismissing the dropdown cancels; “恢复 F6” restores the default.
 5. Expand “亮起颜色” to select a preset or enter a `#RRGGBB` value and click “应用”.
 6. Expand “关于与使用” for the version, GitHub address, and quick help. “GitHub · Star 支持” opens this repository so you can star the project. “退出 Work Mode” quits, releases sleep assertions, and restores the Focus key.
+
+Click the gear on the status capsule to open settings. The capsule stays visible until you close settings.
 
 Color controls and help are collapsed by default. Toggling inside the dropdown updates its status directly; the top capsule appears only when toggling with the dropdown closed.
 

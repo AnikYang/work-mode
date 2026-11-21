@@ -1,3 +1,4 @@
+import ServiceManagement
 import SwiftUI
 
 // Use the property-wrapper type explicitly with Command Line Tools SDKs.
@@ -121,6 +122,22 @@ struct MenuView: View {
             }
 
             Divider()
+
+            Toggle("登录时启动", isOn: Binding(
+                get: { model.launchesAtLogin },
+                set: model.setLaunchAtLogin
+            ))
+            .toggleStyle(.switch)
+            .tint(accent)
+            if model.loginStatus == .requiresApproval {
+                Button("在系统设置中批准") { SMAppService.openSystemSettingsLoginItems() }
+                    .buttonStyle(.link)
+            }
+            if let error = model.loginError {
+                Text("无法更新登录项：\(error)")
+                    .font(.system(size: 10)).foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             Button {
                 model.cancelRecording()
